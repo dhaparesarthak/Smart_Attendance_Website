@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Manage Subjects</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:18px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
+input,select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccc;border-radius:10px;font-size:14px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee;font-size:14px}
+.row:last-child{border-bottom:none}
+.row-info b{display:block}
+.row-info span{font-size:12px;color:#64748b}
+.btn-delete{background:#fee2e2;color:red;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold}
+button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb}
+.success{color:green;font-size:13px;margin-top:8px;display:none;background:#dcfce7;padding:10px;border-radius:8px}
+.error{color:red;font-size:13px;margin-top:8px;display:none;background:#fee2e2;padding:10px;border-radius:8px}
+.skeleton{background:#e2e8f0;border-radius:8px;height:50px;margin:8px 0;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.empty{text-align:center;color:#64748b;font-size:14px;padding:15px 0}
+.enroll-section{margin-top:10px;padding-top:10px;border-top:1px solid #eee}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h2>📚 Manage Subjects</h2>
+    <p>Admin Panel</p>
+  </div>
+
+  <!-- Add Subject -->
+  <div class="card">
+    <h3 style="margin-top:0">Add Subject</h3>
+    <input type="text" id="subjectName" placeholder="Subject Name">
+    <select id="teacherSelect">
+      <option value="">Assign Teacher (optional)</option>
+    </select>
+    <button onclick="addSubject()">➕ Add Subject</button>
+    <div class="success" id="subjectSuccess"></div>
+    <div class="error"   id="subjectError"></div>
+  </div>
+
+  <!-- Enroll Students -->
+  <div class="card">
+    <h3 style="margin-top:0">Enroll Student into Subject</h3>
+    <select id="enrollSubject">
+      <option value="">Select Subject</option>
+    </select>
+    <select id="enrollStudent">
+      <option value="">Select Student</option>
+    </select>
+    <button onclick="enrollStudent()">➕ Enroll Student</button>
+    <div class="success" id="enrollSuccess"></div>
+    <div class="error"   id="enrollError"></div>
+  </div>
+
+  <!-- Subject List -->
+  <div class="card">
+    <h3 style="margin-top:0">Subject List</h3>
+    <div id="subjectList">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <button class="btn-outline" onclick="location.href='admin-dashboard.html'">← Back to Dashboard</button>
+
+</div>
+
+<script type="module">
+import { supabase, requireRole } from './supabase.js'
+
+async function init() {
+  const profile = await requireRole('admin')
+  if (!profile) return
+  loadTeachers()
+  loadStudents()
+  loadSubjects()
+}
+
+async function loadTeachers() {
+  const { data } = await supabase.from('users').select('id, name').eq('role', 'teacher').order('name')
+  const select   = document.getElementById('teacherSelect')
+  if (data) data.forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.id
+    opt.textContent = t.name
+    select.appendChild(opt)
+  })
+}
+
+async function loadStudents() {
+  const { data } = await supabase.from('users').select('id, name, prn').eq('role', 'student').order('name')
+  const select   = document.getElementById('enrollStudent')
+  if (data) data.forEach(s => {
+    const opt = document.createElement('option')
+    opt.value = s.id
+    opt.textContent = s.name + (s.prn ? ` (${s.prn})` : '')
+    select.appendChild(opt)
+  })
+}
+
+async function loadSubjects() {
+  const { data } = await supabase
+    .from('subjects')
+    .select('id, name, users(name)')
+    .order('name')
+
+  const list         = document.getElementById('subjectList')
+  const enrollSelect = document.getElementById('enrollSubject')
+
+  // Reset enroll dropdown
+  enrollSelect.innerHTML = '<option value="">Select Subject</option>'
+
+  if (!data || data.length === 0) {
+    list.innerHTML = '<p class="empty">No subjects found.</p>'
+    return
+  }
+
+  // Populate enroll dropdown
+  data.forEach(s => {
+    const opt = document.createElement('option')
+    opt.value = s.id
+    opt.textContent = s.name
+    enrollSelect.appendChild(opt)
+  })
+
+  // Render subject list with enrolled student count
+  const subjectIds = data.map(s => s.id)
+  const { data: enrollments } = await supabase
+    .from('enrollments')
+    .select('subject_id')
+    .in('subject_id', subjectIds)
+
+  list.innerHTML = data.map(s => {
+    const count = enrollments?.filter(e => e.subject_id === s.id).length || 0
+    return `<div class="row">
+      <div class="row-info">
+        <b>${s.name}</b>
+        <span>${s.users?.name || 'No teacher'} • ${count} student${count !== 1 ? 's' : ''}</span>
+      </div>
+      <button class="btn-delete" onclick="deleteSubject('${s.id}')">Delete</button>
+    </div>`
+  }).join('')
+}
+
+window.addSubject = async function() {
+  const name      = document.getElementById('subjectName').value.trim()
+  const teacherId = document.getElementById('teacherSelect').value
+  const successEl = document.getElementById('subjectSuccess')
+  const errorEl   = document.getElementById('subjectError')
+
+  successEl.style.display = 'none'
+  errorEl.style.display   = 'none'
+
+  if (!name) {
+    errorEl.textContent   = 'Subject name is required.'
+    errorEl.style.display = 'block'
+    return
+  }
+
+  const { error } = await supabase.from('subjects').insert({
+    name,
+    teacher_id: teacherId || null
+  })
+
+  if (error) {
+    errorEl.textContent   = 'Error: ' + error.message
+    errorEl.style.display = 'block'
+    return
+  }
+
+  document.getElementById('subjectName').value    = ''
+  document.getElementById('teacherSelect').value  = ''
+  successEl.textContent   = 'Subject added successfully!'
+  successEl.style.display = 'block'
+  loadSubjects()
+}
+
+window.enrollStudent = async function() {
+  const subjectId = document.getElementById('enrollSubject').value
+  const studentId = document.getElementById('enrollStudent').value
+  const successEl = document.getElementById('enrollSuccess')
+  const errorEl   = document.getElementById('enrollError')
+
+  successEl.style.display = 'none'
+  errorEl.style.display   = 'none'
+
+  if (!subjectId || !studentId) {
+    errorEl.textContent   = 'Please select both subject and student.'
+    errorEl.style.display = 'block'
+    return
+  }
+
+  const { error } = await supabase.from('enrollments').insert({
+    subject_id: subjectId,
+    student_id: studentId
+  })
+
+  if (error) {
+    errorEl.textContent   = error.message.includes('unique') ? 'Student already enrolled in this subject.' : 'Error: ' + error.message
+    errorEl.style.display = 'block'
+    return
+  }
+
+  successEl.textContent   = 'Student enrolled successfully!'
+  successEl.style.display = 'block'
+  loadSubjects()
+}
+
+window.deleteSubject = async function(id) {
+  if (!confirm('Delete this subject? All related lectures and attendance will be deleted.')) return
+  const { error } = await supabase.from('subjects').delete().eq('id', id)
+  if (error) { alert('Error: ' + error.message); return }
+  loadSubjects()
+}
+
+init()
+</script>
+</body>
+</html>
