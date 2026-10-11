@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Attendance History</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:18px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.filters{display:flex;gap:8px;margin-top:15px}
+.filters select{flex:1;padding:10px;border:1px solid #ccc;border-radius:10px;font-size:13px}
+.card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee}
+.row:last-child{border-bottom:none}
+.row-left{text-align:left}
+.row-left b{font-size:14px}
+.row-left span{font-size:12px;color:#64748b}
+.present{color:green;font-weight:bold;font-size:13px}
+.absent{color:red;font-weight:bold;font-size:13px}
+.summary{display:flex;justify-content:space-around;text-align:center;padding:10px 0}
+.summary-item span{font-size:12px;color:#64748b}
+.summary-item b{display:block;font-size:20px;color:#2563eb}
+button{width:100%;padding:13px;margin-top:15px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb}
+.skeleton{background:#e2e8f0;border-radius:8px;height:50px;margin:8px 0;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.empty{text-align:center;color:#64748b;font-size:14px;padding:20px 0}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h2>📋 Attendance History</h2>
+    <p id="studentName">Loading...</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <select id="subjectFilter" onchange="applyFilter()">
+      <option value="">All Subjects</option>
+    </select>
+    <select id="statusFilter" onchange="applyFilter()">
+      <option value="">All Status</option>
+      <option value="present">Present</option>
+      <option value="absent">Absent</option>
+    </select>
+  </div>
+
+  <!-- Summary -->
+  <div class="card">
+    <div class="summary">
+      <div class="summary-item"><b id="totalCount">-</b><span>Total</span></div>
+      <div class="summary-item"><b id="presentCount" style="color:green">-</b><span>Present</span></div>
+      <div class="summary-item"><b id="absentCount" style="color:red">-</b><span>Absent</span></div>
+      <div class="summary-item"><b id="percentCount">-</b><span>Percent</span></div>
+    </div>
+  </div>
+
+  <!-- Records -->
+  <div class="card" id="recordsCard">
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </div>
+
+  <button class="btn-outline" onclick="location.href='student-dashboard.html'">← Back to Dashboard</button>
+
+</div>
+
+<script type="module">
+import { supabase, requireRole } from './supabase.js'
+
+let allRecords = []
+
+async function loadHistory() {
+  const profile = await requireRole('student')
+  if (!profile) return
+
+  document.getElementById('studentName').textContent = profile.name + ' | ' + (profile.prn || '')
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .select(`
+      id,
+      status,
+      scanned_at,
+      lectures (
+        date,
+        subjects ( name )
+      )
+    `)
+    .eq('student_id', profile.id)
+    .order('scanned_at', { ascending: false })
+
+  if (error || !data) {
+    document.getElementById('recordsCard').innerHTML = '<p class="empty">Failed to load history.</p>'
+    return
+  }
+
+  allRecords = data
+
+  // Populate subject filter
+  const subjects = [...new Set(data.map(r => r.lectures?.subjects?.name).filter(Boolean))]
+  const subjectFilter = document.getElementById('subjectFilter')
+  subjects.forEach(s => {
+    const opt = document.createElement('option')
+    opt.value = s
+    opt.textContent = s
+    subjectFilter.appendChild(opt)
+  })
+
+  renderRecords(data)
+}
+
+window.applyFilter = function() {
+  const subject = document.getElementById('subjectFilter').value
+  const status  = document.getElementById('statusFilter').value
+
+  const filtered = allRecords.filter(r => {
+    const matchSubject = !subject || r.lectures?.subjects?.name === subject
+    const matchStatus  = !status  || r.status === status
+    return matchSubject && matchStatus
+  })
+
+  renderRecords(filtered)
+}
+
+function renderRecords(records) {
+  const total   = records.length
+  const present = records.filter(r => r.status === 'present').length
+  const absent  = total - present
+  const percent = total > 0 ? Math.round((present / total) * 100) : 0
+
+  document.getElementById('totalCount').textContent   = total
+  document.getElementById('presentCount').textContent = present
+  document.getElementById('absentCount').textContent  = absent
+  document.getElementById('percentCount').textContent = percent + '%'
+
+  const card = document.getElementById('recordsCard')
+
+  if (records.length === 0) {
+    card.innerHTML = '<p class="empty">No records found.</p>'
+    return
+  }
+
+  card.innerHTML = records.map(r => {
+    const date = new Date(r.lectures?.date).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric'
+    })
+    const time = new Date(r.scanned_at).toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit'
+    })
+    const subject   = r.lectures?.subjects?.name || 'Unknown'
+    const statusCls = r.status === 'present' ? 'present' : 'absent'
+    const statusTxt = r.status === 'present' ? '✓ Present' : '✕ Absent'
+
+    return `<div class="row">
+      <div class="row-left">
+        <b>${subject}</b><br>
+        <span>${date} • ${time}</span>
+      </div>
+      <span class="${statusCls}">${statusTxt}</span>
+    </div>`
+  }).join('')
+}
+
+loadHistory()
+</script>
+</body>
+</html>

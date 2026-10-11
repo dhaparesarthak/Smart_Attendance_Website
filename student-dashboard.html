@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Student Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:20px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.card{background:white;margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
+.attendance{text-align:center;background:#eff6ff}
+.percent{font-size:38px;font-weight:bold;color:#2563eb}
+.meta{font-size:13px;color:#64748b;margin-top:5px}
+.subject{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px}
+.subject:last-child{border-bottom:none}
+.low{color:red;font-weight:bold}
+.ok{color:green;font-weight:bold}
+button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb;margin-top:8px}
+.skeleton{background:#e2e8f0;border-radius:8px;height:18px;margin:6px 0;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.error{color:red;font-size:13px;text-align:center;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <h2 id="studentName">Loading...</h2>
+    <p id="studentPRN"></p>
+    <p id="studentBranch">Smart Attendance System</p>
+  </div>
+
+  <!-- Overall Attendance -->
+  <div class="card attendance">
+    <h3>Overall Attendance</h3>
+    <div class="percent" id="overallPercent">--%</div>
+    <p class="meta" id="overallMeta">Loading attendance data...</p>
+  </div>
+
+  <!-- Subject-wise Attendance -->
+  <div class="card">
+    <h3>Subject-wise Attendance</h3>
+    <div id="subjectList">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <button onclick="location.href='scan-qr.html'">📷 Scan QR & Mark Attendance</button>
+    <button class="btn-outline" onclick="location.href='attendance-history.html'">📋 Attendance History</button>
+    <button class="btn-outline" onclick="logoutUser()">🚪 Logout</button>
+  </div>
+
+</div>
+
+<script type="module">
+import { supabase, requireRole, logout } from './supabase.js'
+
+window.logoutUser = logout
+
+async function loadDashboard() {
+  // Ensure only students can access
+  const profile = await requireRole('student')
+  if (!profile) return
+
+  // Set header info
+  document.getElementById('studentName').textContent = 'Hello, ' + profile.name
+  document.getElementById('studentPRN').textContent = 'PRN: ' + (profile.prn || 'N/A')
+
+  // Fetch all attendance records for this student
+  const { data: attendanceData, error } = await supabase
+    .from('attendance')
+    .select(`
+      status,
+      scanned_at,
+      lectures (
+        date,
+        subjects ( name )
+      )
+    `)
+    .eq('student_id', profile.id)
+    .order('scanned_at', { ascending: false })
+
+  if (error) {
+    document.getElementById('subjectList').innerHTML = '<p class="error">Failed to load attendance.</p>'
+    return
+  }
+
+  // Calculate overall attendance
+  const total   = attendanceData.length
+  const present = attendanceData.filter(a => a.status === 'present').length
+  const absent  = total - present
+  const percent = total > 0 ? Math.round((present / total) * 100) : 0
+
+  document.getElementById('overallPercent').textContent = percent + '%'
+  document.getElementById('overallMeta').textContent =
+    `${present} Present | ${absent} Absent | ${total} Total Lectures`
+
+  // Group by subject
+  const subjectMap = {}
+  attendanceData.forEach(a => {
+    const subjectName = a.lectures?.subjects?.name || 'Unknown'
+    if (!subjectMap[subjectName]) subjectMap[subjectName] = { present: 0, total: 0 }
+    subjectMap[subjectName].total++
+    if (a.status === 'present') subjectMap[subjectName].present++
+  })
+
+  // Render subject list
+  const subjectList = document.getElementById('subjectList')
+  if (Object.keys(subjectMap).length === 0) {
+    subjectList.innerHTML = '<p style="color:#64748b;font-size:14px;text-align:center">No attendance records yet.</p>'
+    return
+  }
+
+  subjectList.innerHTML = Object.entries(subjectMap).map(([name, data]) => {
+    const pct = Math.round((data.present / data.total) * 100)
+    const cls = pct < 75 ? 'low' : 'ok'
+    return `<div class="subject">
+      <span>${name}</span>
+      <b class="${cls}">${pct}%</b>
+    </div>`
+  }).join('')
+}
+
+loadDashboard()
+</script>
+</body>
+</html>

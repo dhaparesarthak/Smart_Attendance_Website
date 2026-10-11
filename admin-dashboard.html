@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:20px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+.stat-card{background:white;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd;text-align:center}
+.stat-card .num{font-size:32px;font-weight:bold;color:#2563eb}
+.stat-card .label{font-size:13px;color:#64748b;margin-top:4px}
+.card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
+.menu-item{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #eee;cursor:pointer;font-size:14px}
+.menu-item:last-child{border-bottom:none}
+.menu-item:hover{color:#2563eb}
+.arrow{color:#2563eb;font-size:18px}
+button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb;margin-top:8px}
+.skeleton{background:#e2e8f0;border-radius:8px;height:32px;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h2 id="adminName">Loading...</h2>
+    <p>Admin Dashboard</p>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="grid">
+    <div class="stat-card"><div class="num skeleton" id="totalStudents"></div><div class="label">Students</div></div>
+    <div class="stat-card"><div class="num skeleton" id="totalTeachers"></div><div class="label">Teachers</div></div>
+    <div class="stat-card"><div class="num skeleton" id="totalSubjects"></div><div class="label">Subjects</div></div>
+    <div class="stat-card"><div class="num skeleton" id="totalLectures"></div><div class="label">Lectures</div></div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card">
+    <h3 style="margin-top:0">Manage</h3>
+    <div class="menu-item" onclick="location.href='manage-users.html?role=student'">
+      <span>👨‍🎓 Manage Students</span><span class="arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="location.href='manage-users.html?role=teacher'">
+      <span>👨‍🏫 Manage Teachers</span><span class="arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="location.href='manage-subjects.html'">
+      <span>📚 Manage Subjects</span><span class="arrow">›</span>
+    </div>
+    <div class="menu-item" onclick="location.href='attendance-report.html'">
+      <span>📊 View All Reports</span><span class="arrow">›</span>
+    </div>
+  </div>
+
+  <button class="btn-outline" onclick="logoutUser()">🚪 Logout</button>
+
+</div>
+
+<script type="module">
+import { supabase, requireRole, logout } from './supabase.js'
+
+window.logoutUser = logout
+
+async function loadDashboard() {
+  const profile = await requireRole('admin')
+  if (!profile) return
+
+  document.getElementById('adminName').textContent = 'Hello, ' + profile.name
+
+  // Fetch counts in parallel
+  const [students, teachers, subjects, lectures] = await Promise.all([
+    supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student'),
+    supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'teacher'),
+    supabase.from('subjects').select('id', { count: 'exact', head: true }),
+    supabase.from('lectures').select('id', { count: 'exact', head: true })
+  ])
+
+  setCount('totalStudents', students.count)
+  setCount('totalTeachers', teachers.count)
+  setCount('totalSubjects', subjects.count)
+  setCount('totalLectures', lectures.count)
+}
+
+function setCount(id, count) {
+  const el = document.getElementById(id)
+  el.textContent = count ?? '0'
+  el.classList.remove('skeleton')
+}
+
+loadDashboard()
+</script>
+</body>
+</html>

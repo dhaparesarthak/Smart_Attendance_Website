@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Scan QR</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:18px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd;text-align:center}
+.camera-wrap{position:relative;width:100%;border-radius:15px;overflow:hidden;background:#000}
+video{width:100%;display:block;border-radius:15px}
+canvas{display:none}
+.scan-line{
+  position:absolute;top:0;left:0;width:100%;height:3px;
+  background:#2563eb;animation:scan 2s linear infinite;opacity:0.8
+}
+@keyframes scan{0%{top:0}100%{top:100%}}
+.corner{position:absolute;width:24px;height:24px;border-color:#2563eb;border-style:solid}
+.tl{top:10px;left:10px;border-width:3px 0 0 3px}
+.tr{top:10px;right:10px;border-width:3px 3px 0 0}
+.bl{bottom:10px;left:10px;border-width:0 0 3px 3px}
+.br{bottom:10px;right:10px;border-width:0 3px 3px 0}
+.status{margin-top:15px;padding:12px;border-radius:10px;font-weight:bold;font-size:14px;display:none}
+.status.scanning{background:#eff6ff;color:#2563eb;display:block}
+.status.success{background:#dcfce7;color:green;display:block}
+.status.error{background:#fee2e2;color:red;display:block}
+button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h2>📷 Scan Attendance QR</h2>
+    <p>Point camera at the QR code shown by your teacher</p>
+  </div>
+
+  <div class="card">
+    <div class="camera-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div class="scan-line"></div>
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+    </div>
+    <div class="status scanning" id="status">🔍 Scanning for QR code...</div>
+  </div>
+
+  <button class="btn-outline" style="margin-top:15px" onclick="location.href='student-dashboard.html'">← Back to Dashboard</button>
+
+</div>
+
+<!-- jsQR for QR decoding -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script type="module">
+import { supabase, requireRole } from './supabase.js'
+
+let scanning   = true
+let profile    = null
+
+async function init() {
+  profile = await requireRole('student')
+  if (!profile) return
+  startCamera()
+}
+
+async function startCamera() {
+  const video  = document.getElementById('video')
+  const status = document.getElementById('status')
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' } // use back camera on mobile
+    })
+    video.srcObject = stream
+    video.play()
+    video.addEventListener('loadedmetadata', () => scanFrame())
+  } catch (err) {
+    status.className   = 'status error'
+    status.textContent = '❌ Camera access denied. Please allow camera permission.'
+  }
+}
+
+function scanFrame() {
+  if (!scanning) return
+
+  const video  = document.getElementById('video')
+  const canvas = document.getElementById('canvas')
+  const status = document.getElementById('status')
+
+  if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+    requestAnimationFrame(scanFrame)
+    return
+  }
+
+  canvas.width  = video.videoWidth
+  canvas.height = video.videoHeight
+
+  const ctx       = canvas.getContext('2d')
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const code      = jsQR(imageData.data, imageData.width, imageData.height)
+
+  if (code) {
+    scanning = false
+    status.className   = 'status scanning'
+    status.textContent = '⏳ Verifying QR code...'
+    markAttendance(code.data)
+  } else {
+    requestAnimationFrame(scanFrame)
+  }
+}
+
+async function markAttendance(token) {
+  const status = document.getElementById('status')
+
+  // Find lecture by token
+  const { data: lecture, error: lectureError } = await supabase
+    .from('lectures')
+    .select('id, expires_at, subjects(name)')
+    .eq('qr_token', token)
+    .single()
+
+  if (lectureError || !lecture) {
+    showError('❌ Invalid QR code. Please try again.')
+    return
+  }
+
+  // Check if QR is expired
+  if (new Date() > new Date(lecture.expires_at)) {
+    showError('⏰ QR code has expired. Ask your teacher to regenerate.')
+    return
+  }
+
+  // Check if already marked
+  const { data: existing } = await supabase
+    .from('attendance')
+    .select('id')
+    .eq('lecture_id', lecture.id)
+    .eq('student_id', profile.id)
+    .single()
+
+  if (existing) {
+    showError('⚠️ Attendance already marked for this lecture.')
+    return
+  }
+
+  // Mark attendance as present
+  const { error: insertError } = await supabase
+    .from('attendance')
+    .insert({
+      lecture_id : lecture.id,
+      student_id : profile.id,
+      status     : 'present'
+    })
+
+  if (insertError) {
+    showError('❌ Failed to mark attendance. Try again.')
+    return
+  }
+
+  // Stop camera and redirect to success page
+  stopCamera()
+  status.className   = 'status success'
+  status.textContent = '✅ Attendance marked! Redirecting...'
+
+  setTimeout(() => {
+    location.href = 'attendance-success.html'
+  }, 1500)
+}
+
+function stopCamera() {
+  const video = document.getElementById('video')
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop())
+  }
+}
+
+function showError(msg) {
+  const status = document.getElementById('status')
+  status.className   = 'status error'
+  status.textContent = msg
+
+  // Resume scanning after 3 seconds
+  setTimeout(() => {
+    scanning = true
+    status.className   = 'status scanning'
+    status.textContent = '🔍 Scanning for QR code...'
+    scanFrame()
+  }, 3000)
+}
+
+// Stop camera when leaving page
+window.addEventListener('beforeunload', stopCamera)
+
+init()
+</script>
+</body>
+</html>

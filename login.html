@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Login - Smart Attendance</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:Arial;background:#eef4ff;
+  display:flex;justify-content:center;align-items:center;height:100vh
+}
+.card{
+  width:360px;background:white;padding:30px;border-radius:20px;
+  text-align:center;box-shadow:0 5px 20px #bbb
+}
+.logo{
+  width:65px;height:65px;background:#2563eb;color:white;
+  border-radius:18px;margin:auto;display:grid;place-items:center;
+  font-size:30px
+}
+h1{color:#172554;margin:15px 0 5px}
+p{color:#64748b;margin:0 0 15px}
+input,select{
+  width:100%;padding:13px;margin:8px 0;
+  border:1px solid #ccc;border-radius:10px;font-size:14px
+}
+button{
+  width:100%;padding:13px;margin-top:10px;
+  border:0;border-radius:10px;background:#2563eb;
+  color:white;font-weight:bold;font-size:15px;cursor:pointer
+}
+button:disabled{background:#93b4f5;cursor:not-allowed}
+.error{
+  color:red;font-size:13px;margin-top:10px;
+  background:#fff0f0;padding:10px;border-radius:8px;display:none
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">✓</div>
+  <h1>Smart Attendance</h1>
+  <p>Management System</p>
+
+  <select id="role">
+    <option value="">Select Role</option>
+    <option value="student">Student</option>
+    <option value="teacher">Teacher</option>
+    <option value="admin">Admin</option>
+  </select>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button id="loginBtn" onclick="login()">LOGIN</button>
+  <div class="error" id="errorMsg"></div>
+</div>
+
+<script type="module">
+import { supabase, getUserProfile } from './supabase.js'
+
+window.login = async function() {
+  const role     = document.getElementById('role').value
+  const email    = document.getElementById('email').value.trim()
+  const password = document.getElementById('password').value
+  const errorMsg = document.getElementById('errorMsg')
+  const btn      = document.getElementById('loginBtn')
+
+  errorMsg.style.display = 'none'
+
+  if (!role || !email || !password) {
+    errorMsg.textContent = 'Please fill in all fields.'
+    errorMsg.style.display = 'block'
+    return
+  }
+
+  btn.disabled = true
+  btn.textContent = 'Logging in...'
+
+  // Sign in with Supabase Auth
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+  if (error) {
+    errorMsg.textContent = 'Invalid email or password.'
+    errorMsg.style.display = 'block'
+    btn.disabled = false
+    btn.textContent = 'LOGIN'
+    return
+  }
+
+  // Verify role matches what user selected
+  const { data: profileData, error: profileError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', data.user.id)
+    .single()
+
+  if (profileError || !profileData) {
+    errorMsg.textContent = 'Debug: ' + (profileError?.message || 'No profile found') + ' | UID: ' + data.user.id
+    errorMsg.style.display = 'block'
+    await supabase.auth.signOut()
+    btn.disabled = false
+    btn.textContent = 'LOGIN'
+    return
+  }
+
+  const profile = profileData
+
+  if (profile.role !== role) {
+    errorMsg.textContent = `This account is not registered as a ${role}.`
+    errorMsg.style.display = 'block'
+    await supabase.auth.signOut()
+    btn.disabled = false
+    btn.textContent = 'LOGIN'
+    return
+  }
+
+  // Route based on role
+  if (role === 'student')      location.href = 'student-dashboard.html'
+  else if (role === 'teacher') location.href = 'teacher-dashboard.html'
+  else if (role === 'admin')   location.href = 'admin-dashboard.html'
+}
+</script>
+</body>
+</html>

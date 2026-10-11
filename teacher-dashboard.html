@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Teacher Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:20px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.card{background:white;margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
+.stat{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px}
+.stat:last-child{border-bottom:none}
+.subject-item{padding:10px 0;border-bottom:1px solid #eee;font-size:14px}
+.subject-item:last-child{border-bottom:none}
+.subject-item span{color:#64748b;font-size:12px}
+button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb;margin-top:8px}
+.skeleton{background:#e2e8f0;border-radius:8px;height:18px;margin:6px 0;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h2 id="teacherName">Loading...</h2>
+    <p>Teacher Dashboard</p>
+    <p id="teacherEmail"></p>
+  </div>
+
+  <!-- Today's Summary -->
+  <div class="card">
+    <h3>Today's Summary</h3>
+    <div id="todaySummary">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- My Subjects -->
+  <div class="card">
+    <h3>My Subjects</h3>
+    <div id="subjectList">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <button onclick="location.href='generate-qr.html'">📲 Generate Attendance QR</button>
+    <button class="btn-outline" onclick="location.href='attendance-report.html'">📊 View Attendance Report</button>
+    <button class="btn-outline" onclick="logoutUser()">🚪 Logout</button>
+  </div>
+
+</div>
+
+<script type="module">
+import { supabase, requireRole, logout } from './supabase.js'
+
+window.logoutUser = logout
+
+async function loadDashboard() {
+  const profile = await requireRole('teacher')
+  if (!profile) return
+
+  document.getElementById('teacherName').textContent = 'Hello, ' + profile.name
+  document.getElementById('teacherEmail').textContent = profile.email
+
+  // Load subjects assigned to this teacher
+  const { data: subjects } = await supabase
+    .from('subjects')
+    .select('id, name')
+    .eq('teacher_id', profile.id)
+
+  // Render subjects
+  const subjectList = document.getElementById('subjectList')
+  if (!subjects || subjects.length === 0) {
+    subjectList.innerHTML = '<p style="color:#64748b;font-size:14px;text-align:center">No subjects assigned yet.</p>'
+  } else {
+    subjectList.innerHTML = subjects.map(s =>
+      `<div class="subject-item"><b>${s.name}</b></div>`
+    ).join('')
+  }
+
+  // Load today's lectures for this teacher
+  const today = new Date().toISOString().split('T')[0]
+  const { data: lectures } = await supabase
+    .from('lectures')
+    .select('id, subjects(name)')
+    .eq('teacher_id', profile.id)
+    .eq('date', today)
+
+  if (!lectures || lectures.length === 0) {
+    document.getElementById('todaySummary').innerHTML =
+      '<p style="color:#64748b;font-size:14px;text-align:center">No lectures today yet.</p>'
+    return
+  }
+
+  // Get attendance counts for today's lectures
+  const lectureIds = lectures.map(l => l.id)
+  const { data: attendanceData } = await supabase
+    .from('attendance')
+    .select('status, lecture_id')
+    .in('lecture_id', lectureIds)
+
+  const present = attendanceData?.filter(a => a.status === 'present').length || 0
+  const total   = attendanceData?.length || 0
+  const absent  = total - present
+  const percent = total > 0 ? Math.round((present / total) * 100) : 0
+
+  document.getElementById('todaySummary').innerHTML = `
+    <div class="stat"><span>Lectures Taken</span><b>${lectures.length}</b></div>
+    <div class="stat"><span>Present</span><b style="color:green">${present}</b></div>
+    <div class="stat"><span>Absent</span><b style="color:red">${absent}</b></div>
+    <div class="stat"><span>Attendance</span><b>${percent}%</b></div>
+  `
+}
+
+loadDashboard()
+</script>
+</body>
+</html>

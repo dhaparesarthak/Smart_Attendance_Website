@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Generate QR</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.header{background:#2563eb;color:white;padding:18px;border-radius:18px}
+.header h2{margin:0 0 5px}
+.header p{margin:3px 0;font-size:14px;opacity:0.9}
+.card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
+select{width:100%;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:10px;font-size:14px}
+button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb}
+.qr-box{text-align:center;margin-top:15px;padding:20px;border-radius:15px;box-shadow:0 3px 12px #ddd;display:none}
+#qrcode{display:flex;justify-content:center;margin:15px 0}
+.timer{font-size:28px;font-weight:bold;color:#2563eb;text-align:center;margin:10px 0}
+.timer.warning{color:orange}
+.timer.expired{color:red}
+.badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:bold}
+.badge.active{background:#dcfce7;color:green}
+.badge.expired{background:#fee2e2;color:red}
+.error{color:red;font-size:13px;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h2>📲 Generate QR Code</h2>
+    <p>QR is valid for 1 minute only</p>
+  </div>
+
+  <!-- Select Subject -->
+  <div class="card">
+    <h3>Select Subject</h3>
+    <select id="subjectSelect">
+      <option value="">Loading subjects...</option>
+    </select>
+    <button onclick="generateQR()">Generate QR Code</button>
+    <div class="error" id="errorMsg"></div>
+  </div>
+
+  <!-- QR Display -->
+  <div class="qr-box" id="qrBox">
+    <h3 id="qrSubjectName"></h3>
+    <span class="badge active" id="qrBadge">● Active</span>
+    <div id="qrcode"></div>
+    <div class="timer" id="timer">60s</div>
+    <p style="color:#64748b;font-size:13px">Show this QR to students.<br>It will expire in 1 minute.</p>
+    <button class="btn-outline" onclick="generateQR()">🔄 Regenerate QR</button>
+  </div>
+
+  <button class="btn-outline" style="margin-top:15px" onclick="location.href='teacher-dashboard.html'">← Back to Dashboard</button>
+
+</div>
+
+<!-- QRCode.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script type="module">
+import { supabase, requireRole } from './supabase.js'
+
+let timerInterval = null
+let profile = null
+
+async function init() {
+  profile = await requireRole('teacher')
+  if (!profile) return
+
+  // Load subjects for this teacher
+  const { data: subjects } = await supabase
+    .from('subjects')
+    .select('id, name')
+    .eq('teacher_id', profile.id)
+
+  const select = document.getElementById('subjectSelect')
+
+  if (!subjects || subjects.length === 0) {
+    select.innerHTML = '<option value="">No subjects assigned</option>'
+    return
+  }
+
+  select.innerHTML = '<option value="">Select a subject</option>' +
+    subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('')
+}
+
+window.generateQR = async function() {
+  const subjectId   = document.getElementById('subjectSelect').value
+  const errorMsg    = document.getElementById('errorMsg')
+  errorMsg.style.display = 'none'
+
+  if (!subjectId) {
+    errorMsg.textContent = 'Please select a subject.'
+    errorMsg.style.display = 'block'
+    return
+  }
+
+  // Clear previous timer
+  if (timerInterval) clearInterval(timerInterval)
+
+  // Generate unique token
+  const token      = crypto.randomUUID()
+  const expiresAt  = new Date(Date.now() + 60 * 1000).toISOString() // 1 minute
+
+  // Insert lecture into Supabase
+  const { data: lecture, error } = await supabase
+    .from('lectures')
+    .insert({
+      subject_id : subjectId,
+      teacher_id : profile.id,
+      date       : new Date().toISOString().split('T')[0],
+      qr_token   : token,
+      expires_at : expiresAt
+    })
+    .select()
+    .single()
+
+  if (error) {
+    errorMsg.textContent = 'Failed to generate QR: ' + error.message
+    errorMsg.style.display = 'block'
+    return
+  }
+
+  // Get subject name
+  const subjectName = document.getElementById('subjectSelect').selectedOptions[0].text
+  document.getElementById('qrSubjectName').textContent = subjectName
+
+  // Generate QR code image
+  const qrContainer = document.getElementById('qrcode')
+  qrContainer.innerHTML = ''
+  new QRCode(qrContainer, {
+    text   : token,
+    width  : 220,
+    height : 220
+  })
+
+  // Show QR box
+  document.getElementById('qrBox').style.display = 'block'
+  document.getElementById('qrBadge').className    = 'badge active'
+  document.getElementById('qrBadge').textContent  = '● Active'
+
+  // Start 60 second countdown
+  let secondsLeft = 60
+  const timerEl   = document.getElementById('timer')
+  const badgeEl   = document.getElementById('qrBadge')
+
+  timerEl.className = 'timer'
+  timerEl.textContent = secondsLeft + 's'
+
+  timerInterval = setInterval(() => {
+    secondsLeft--
+    timerEl.textContent = secondsLeft + 's'
+
+    if (secondsLeft <= 10) timerEl.className = 'timer warning'
+    if (secondsLeft <= 0) {
+      clearInterval(timerInterval)
+      timerEl.className   = 'timer expired'
+      timerEl.textContent = 'Expired'
+      badgeEl.className   = 'badge expired'
+      badgeEl.textContent = '✕ Expired'
+      qrContainer.style.opacity = '0.3'
+    }
+  }, 1000)
+}
+
+init()
+</script>
+</body>
+</html>

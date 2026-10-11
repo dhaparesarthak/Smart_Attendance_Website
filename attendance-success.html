@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Attendance Successful</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
+.app{max-width:420px;margin:auto;background:white;min-height:100vh;padding:20px}
+.card{text-align:center;margin-top:60px;padding:25px;border-radius:18px;box-shadow:0 3px 12px #ddd}
+.success-icon{font-size:70px;animation:pop 0.5s ease}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+h2{color:green;margin:10px 0 5px}
+.info{text-align:left;margin-top:20px;background:#f8faff;padding:15px;border-radius:12px;line-height:2;font-size:14px}
+.info b{color:#2563eb}
+button{width:100%;padding:13px;margin-top:15px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
+.btn-outline{background:white;color:#2563eb;border:2px solid #2563eb;margin-top:8px}
+.skeleton{background:#e2e8f0;border-radius:8px;height:18px;margin:8px 0;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <div class="success-icon">✅</div>
+    <h2>Attendance Marked!</h2>
+    <p style="color:#64748b">Your attendance has been recorded successfully.</p>
+    <div class="info" id="infoBox">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+    <button onclick="location.href='student-dashboard.html'">🏠 Back to Dashboard</button>
+    <button class="btn-outline" onclick="location.href='attendance-history.html'">📋 View History</button>
+  </div>
+</div>
+
+<script type="module">
+import { supabase, requireRole } from './supabase.js'
+
+async function loadDetails() {
+  const profile = await requireRole('student')
+  if (!profile) return
+
+  // Get the most recent attendance record for this student
+  const { data, error } = await supabase
+    .from('attendance')
+    .select(`
+      status,
+      scanned_at,
+      lectures (
+        date,
+        subjects ( name ),
+        users ( name )
+      )
+    `)
+    .eq('student_id', profile.id)
+    .order('scanned_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !data) {
+    document.getElementById('infoBox').innerHTML =
+      '<p style="color:red;font-size:13px">Could not load attendance details.</p>'
+    return
+  }
+
+  const scannedAt = new Date(data.scanned_at).toLocaleTimeString('en-IN', {
+    hour: '2-digit', minute: '2-digit'
+  })
+  const date = new Date(data.lectures.date).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  })
+
+  document.getElementById('infoBox').innerHTML = `
+    <div><b>Student:</b> ${profile.name}</div>
+    <div><b>PRN:</b> ${profile.prn || 'N/A'}</div>
+    <div><b>Subject:</b> ${data.lectures.subjects?.name || 'N/A'}</div>
+    <div><b>Teacher:</b> ${data.lectures.users?.name || 'N/A'}</div>
+    <div><b>Date:</b> ${date}</div>
+    <div><b>Time:</b> ${scannedAt}</div>
+    <div><b>Status:</b> <span style="color:green;font-weight:bold">Present ✓</span></div>
+  `
+}
+
+loadDetails()
+</script>
+</body>
+</html>
