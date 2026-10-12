@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Teacher Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
@@ -19,6 +20,12 @@ button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;backg
 .btn-outline{background:white;color:#2563eb;border:2px solid #2563eb;margin-top:8px}
 .skeleton{background:#e2e8f0;border-radius:8px;height:18px;margin:6px 0;animation:pulse 1.2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@media(max-width:420px){
+  .app{padding:12px}
+  .header{border-radius:14px;padding:15px}
+  .stat{font-size:13px}
+  button{font-size:14px;padding:12px}
+}
 </style>
 </head>
 <body>

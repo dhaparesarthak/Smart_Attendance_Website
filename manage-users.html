@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Manage Users</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
@@ -10,7 +11,7 @@ body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
 .header h2{margin:0 0 5px}
 .header p{margin:3px 0;font-size:14px;opacity:0.9}
 .card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
-input,select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccc;border-radius:10px;font-size:14px}
+input,select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccc;border-radius:10px;font-size:16px}
 .user-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee;font-size:14px}
 .user-row:last-child{border-bottom:none}
 .user-info b{display:block;font-size:14px}
@@ -27,6 +28,13 @@ button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;backg
 .tabs{display:flex;gap:8px;margin-top:15px}
 .tab{flex:1;padding:10px;border-radius:10px;border:2px solid #2563eb;background:white;color:#2563eb;font-weight:bold;cursor:pointer;font-size:14px}
 .tab.active{background:#2563eb;color:white}
+@media(max-width:420px){
+  .app{padding:12px}
+  .header{border-radius:14px;padding:14px}
+  .tab{font-size:13px;padding:9px}
+  .user-info b{font-size:13px}
+  .btn-delete{padding:6px 10px;font-size:12px}
+}
 </style>
 </head>
 <body>

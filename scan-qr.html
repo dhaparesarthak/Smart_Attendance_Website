@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Scan QR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
@@ -13,10 +14,7 @@ body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
 .camera-wrap{position:relative;width:100%;border-radius:15px;overflow:hidden;background:#000}
 video{width:100%;display:block;border-radius:15px}
 canvas{display:none}
-.scan-line{
-  position:absolute;top:0;left:0;width:100%;height:3px;
-  background:#2563eb;animation:scan 2s linear infinite;opacity:0.8
-}
+.scan-line{position:absolute;top:0;left:0;width:100%;height:3px;background:#2563eb;animation:scan 2s linear infinite;opacity:0.8}
 @keyframes scan{0%{top:0}100%{top:100%}}
 .corner{position:absolute;width:24px;height:24px;border-color:#2563eb;border-style:solid}
 .tl{top:10px;left:10px;border-width:3px 0 0 3px}
@@ -29,6 +27,13 @@ canvas{display:none}
 .status.error{background:#fee2e2;color:red;display:block}
 button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
 .btn-outline{background:white;color:#2563eb;border:2px solid #2563eb}
+@media(max-width:420px){
+  .app{padding:12px}
+  .header{border-radius:14px;padding:14px}
+  .card{padding:12px}
+  .camera-wrap{border-radius:12px}
+  video{border-radius:12px}
+}
 </style>
 </head>
 <body>

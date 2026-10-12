@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Generate QR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
@@ -10,7 +11,7 @@ body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
 .header h2{margin:0 0 5px}
 .header p{margin:3px 0;font-size:14px;opacity:0.9}
 .card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
-select{width:100%;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:10px;font-size:14px}
+select{width:100%;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:10px;font-size:16px}
 button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:15px}
 .btn-outline{background:white;color:#2563eb;border:2px solid #2563eb}
 .qr-box{text-align:center;margin-top:15px;padding:20px;border-radius:15px;box-shadow:0 3px 12px #ddd;display:none}
@@ -22,6 +23,13 @@ button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;backg
 .badge.active{background:#dcfce7;color:green}
 .badge.expired{background:#fee2e2;color:red}
 .error{color:red;font-size:13px;margin-top:8px;display:none}
+@media(max-width:420px){
+  .app{padding:12px}
+  .header{border-radius:14px;padding:14px}
+  #qrcode canvas,#qrcode img{width:180px!important;height:180px!important}
+  .timer{font-size:24px}
+  button{font-size:14px;padding:12px}
+}
 </style>
 </head>
 <body>

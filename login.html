@@ -2,11 +2,12 @@
 <html>
 <head>
 <title>Login - Smart Attendance</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{
   margin:0;font-family:Arial;background:#eef4ff;
-  display:flex;justify-content:center;align-items:center;height:100vh
+  display:flex;justify-content:center;align-items:center;min-height:100vh
 }
 .card{
   width:360px;background:white;padding:30px;border-radius:20px;
@@ -21,7 +22,7 @@ h1{color:#172554;margin:15px 0 5px}
 p{color:#64748b;margin:0 0 15px}
 input,select{
   width:100%;padding:13px;margin:8px 0;
-  border:1px solid #ccc;border-radius:10px;font-size:14px
+  border:1px solid #ccc;border-radius:10px;font-size:16px
 }
 button{
   width:100%;padding:13px;margin-top:10px;
@@ -32,6 +33,10 @@ button:disabled{background:#93b4f5;cursor:not-allowed}
 .error{
   color:red;font-size:13px;margin-top:10px;
   background:#fff0f0;padding:10px;border-radius:8px;display:none
+}
+@media(max-width:400px){
+  body{align-items:flex-start}
+  .card{width:100%;min-height:100vh;border-radius:0;padding:30px 20px;box-shadow:none}
 }
 </style>
 </head>

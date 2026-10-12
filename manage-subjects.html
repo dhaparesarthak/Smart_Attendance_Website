@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Manage Subjects</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
@@ -10,7 +11,7 @@ body{margin:0;font-family:Arial;background:#eef4ff;color:#172554}
 .header h2{margin:0 0 5px}
 .header p{margin:3px 0;font-size:14px;opacity:0.9}
 .card{margin-top:15px;padding:15px;border-radius:15px;box-shadow:0 3px 12px #ddd}
-input,select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccc;border-radius:10px;font-size:14px}
+input,select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccc;border-radius:10px;font-size:16px}
 .row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee;font-size:14px}
 .row:last-child{border-bottom:none}
 .row-info b{display:block}
@@ -23,7 +24,14 @@ button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:10px;backg
 .skeleton{background:#e2e8f0;border-radius:8px;height:50px;margin:8px 0;animation:pulse 1.2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 .empty{text-align:center;color:#64748b;font-size:14px;padding:15px 0}
-.enroll-section{margin-top:10px;padding-top:10px;border-top:1px solid #eee}
+@media(max-width:420px){
+  .app{padding:12px}
+  .header{border-radius:14px;padding:14px}
+  .row{flex-wrap:wrap;gap:8px}
+  .row-info b{font-size:13px}
+  .btn-delete{padding:6px 10px;font-size:12px}
+  button{font-size:14px;padding:12px}
+}
 </style>
 </head>
 <body>
