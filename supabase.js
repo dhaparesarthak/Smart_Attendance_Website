@@ -49,8 +49,6 @@ export async function requireAuth() {
 export async function requireRole(role) {
   const user = await requireAuth()
   if (!user) return null
-  const user = await requireAuth()
-  if (!user) return null
   const profile = await getUserProfile(user.id)
   if (!profile) {
     location.href = 'login.html'
