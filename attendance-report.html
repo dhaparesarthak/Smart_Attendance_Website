@@ -75,7 +75,7 @@ button{width:100%;padding:13px;margin-top:15px;border:0;border-radius:10px;backg
     <div class="skeleton"></div>
   </div>
 
-  <button class="btn-outline" onclick="location.href='teacher-dashboard.html'">← Back to Dashboard</button>
+  <button class="btn-outline" id="backBtn" onclick="goBack()">← Back to Dashboard</button>
 
 </div>
 
@@ -94,6 +94,11 @@ async function loadReport() {
   }
 
   document.getElementById('teacherName').textContent = userProfile.name
+
+  // Back button routes to correct dashboard
+  window.goBack = () => {
+    location.href = userProfile.role === 'admin' ? 'admin-dashboard.html' : 'teacher-dashboard.html'
+  }
 
   // If admin, fetch all lectures, else only teacher's lectures
   let query = supabase
